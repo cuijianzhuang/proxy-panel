@@ -1,0 +1,14 @@
+# Keep the build context small + avoid shipping host build artifacts that
+# would otherwise bust caches or get embedded stale.
+target/
+**/target/
+web/node_modules/
+web/dist/          # rebuilt inside the image by the `web` stage
+data/
+*.db
+*.db-*
+.git/
+.claude/
+.vscode/
+.idea/
+*.log

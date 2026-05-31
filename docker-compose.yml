@@ -1,0 +1,65 @@
+# =============================================================================
+# proxy-panel — docker compose
+#
+#   SQLite (default, zero extra services):
+#     docker compose up -d --build
+#
+#   PostgreSQL (opt-in):
+#     docker compose --profile postgres up -d --build
+#     (the panel service auto-switches to the pg DATABASE_URL below)
+#
+# Set a real admin password before first boot:
+#     PANEL_ADMIN_PASSWORD=... docker compose up -d --build
+# =============================================================================
+services:
+  panel:
+    build: .
+    image: proxy-panel:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PANEL_BIND: "0.0.0.0:8080"
+      # First-run admin password. If unset, one is generated and printed in
+      # the container logs (`docker compose logs panel`).
+      PANEL_ADMIN_PASSWORD: "${PANEL_ADMIN_PASSWORD:-}"
+      # Public hostname clients reach the proxy nodes / subscription on.
+      PANEL_PUBLIC_HOST: "${PANEL_PUBLIC_HOST:-}"
+      # dry-run (no SSH) or ssh. For ssh, also mount a key + set PANEL_SSH_KEY_PATH.
+      PANEL_REMOTE_MODE: "${PANEL_REMOTE_MODE:-dry-run}"
+      # Set behind a TLS-terminating reverse proxy in production.
+      PANEL_COOKIE_SECURE: "${PANEL_COOKIE_SECURE:-0}"
+      RUST_LOG: "info,sqlx=warn"
+      # SQLite by default; overridden to postgres when the profile is active.
+      DATABASE_URL: "${DATABASE_URL:-sqlite:///data/panel.db}"
+    volumes:
+      - panel-data:/data
+    healthcheck:
+      test: ["CMD", "panel-server", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Opt-in PostgreSQL. Activate with `--profile postgres`, and point the panel
+  # at it by exporting DATABASE_URL before `up`:
+  #   export DATABASE_URL="postgres://panel:panelpw@postgres:5432/panel"
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: panel
+      POSTGRES_PASSWORD: panelpw
+      POSTGRES_DB: panel
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  panel-data:
+  pg-data:

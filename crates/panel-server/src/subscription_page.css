@@ -1,0 +1,184 @@
+/*
+ * Self-contained styles for /s/<token>. Sakura-tinted, mobile-first.
+ * Inlined into the page by `include_str!` — no external CSS request.
+ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+               Arial, system-ui, sans-serif;
+  color: #1f2937;
+  background:
+    radial-gradient(1200px 800px at 100% 0%, #ffe4ec 0%, transparent 60%),
+    radial-gradient(900px 600px at 0% 100%, #fff5f8 0%, transparent 50%),
+    #fdfdfd;
+  min-height: 100vh;
+  padding: clamp(16px, 5vw, 48px);
+}
+
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid #ffe1ec;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px -16px rgba(239, 39, 97, 0.25);
+}
+
+/* hero ------------------------------------------------------------------- */
+.hero {
+  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 32px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-size: 28px;
+  margin: 6px 0 8px;
+  letter-spacing: -0.01em;
+}
+.hero p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: #ef2761;
+  font-weight: 700;
+}
+.hero aside {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  border-left: 1px dashed #ffd6e2;
+  padding-left: 28px;
+}
+.meta-label {
+  font-size: 11px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+.meta-value { font-size: 18px; font-weight: 600; margin-top: 2px; }
+.meta-value-sm { font-size: 14px; margin-top: 2px; }
+.meta-divider { color: #d1d5db; margin: 0 4px; }
+.muted { color: #6b7280; font-weight: 400; }
+.bar {
+  margin-top: 8px;
+  width: 100%;
+  height: 6px;
+  background: #ffe4ec;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff709a 0%, #ef2761 100%);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.badge-ok  { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+.badge-err { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
+
+/* subscription cards ----------------------------------------------------- */
+.grid {
+  display: grid;
+  /* 3-column layout at desktop, auto-collapsing to 2 / 1 at narrow widths.
+   * 6 cards land as a clean 3×2 grid that mirrors the reference panel. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+@media (min-width: 980px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+.sub-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px;
+}
+.sub-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-title { font-weight: 600; font-size: 15px; }
+.format-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #ef2761;
+  background: #ffe4ec;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.qr {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qr svg { width: 100%; height: auto; max-width: 240px; }
+.sub-card > footer {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #6b7280;
+}
+.copy-btn {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #ffd6e2;
+  background: #fff;
+  color: #ef2761;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.copy-btn:hover { background: #ffe4ec; }
+.copy-btn.ok { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.hidden { display: none; }
+
+.hint {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.7;
+}
+
+/* mobile ----------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+  .hero aside {
+    border-left: none;
+    border-top: 1px dashed #ffd6e2;
+    padding-left: 0;
+    padding-top: 16px;
+  }
+}

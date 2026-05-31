@@ -1,0 +1,23 @@
+[package]
+name = "panel-task"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+tokio.workspace = true
+sqlx = { workspace = true, features = ["json"] }
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+panel-persistence.workspace = true
+panel-domain.workspace = true
+panel-core.workspace = true
+panel-core-xray.workspace = true
+panel-core-singbox.workspace = true
+panel-node.workspace = true

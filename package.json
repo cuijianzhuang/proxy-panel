@@ -1,0 +1,11 @@
+{
+  "name": "proxy-panel-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Workspace root delegating to web/ for the frontend dev server. The Rust workspace is the source of truth — this exists only so tooling that looks for a top-level package.json (e.g. the preview launch config) Just Works.",
+  "scripts": {
+    "dev":     "npm run --prefix web dev",
+    "build":   "npm run --prefix web build",
+    "preview": "npm run --prefix web preview"
+  }
+}

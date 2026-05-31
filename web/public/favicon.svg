@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Five-petal sakura. Each petal is a stretched ellipse rotated 72° around the centre. -->
+  <g transform="translate(32 32)">
+    <g fill="#ff4778" opacity="0.92">
+      <ellipse cx="0" cy="-15" rx="8" ry="13" />
+      <ellipse cx="0" cy="-15" rx="8" ry="13" transform="rotate(72)" />
+      <ellipse cx="0" cy="-15" rx="8" ry="13" transform="rotate(144)" />
+      <ellipse cx="0" cy="-15" rx="8" ry="13" transform="rotate(216)" />
+      <ellipse cx="0" cy="-15" rx="8" ry="13" transform="rotate(288)" />
+    </g>
+    <circle r="4" fill="#ffe066" />
+  </g>
+</svg>

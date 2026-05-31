@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens. The inline bootstrap in index.html flips `data-theme` on
+ * <html> to one of `sakura | light | dark` (the `system` user-choice is
+ * resolved to `light` or `dark` at boot, so CSS only ever sees the three).
+ */
+:root,
+[data-theme="sakura"] {
+  --bg: #fff5f8;
+  --bg-elev: #ffffff;
+  --bg-sidebar: #fff0f5;
+  --fg: #1f2937;
+  --fg-muted: #6b7280;
+  --border: #ffd6e2;
+  --accent: #ef2761;
+  --accent-fg: #ffffff;
+  --accent-soft: #ffe4ec;
+}
+
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-elev: #ffffff;
+  --bg-sidebar: #f1f5f9;
+  --fg: #0f172a;
+  --fg-muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --accent-soft: #dbeafe;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --bg-elev: #111827;
+  --bg-sidebar: #0f172a;
+  --fg: #e5e7eb;
+  --fg-muted: #94a3b8;
+  --border: #1f2937;
+  --accent: #f472b6;
+  --accent-fg: #0b1220;
+  --accent-soft: #1f2937;
+}
+
+html, body, #root {
+  height: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reusable atoms — keep these to a minimum; pages style with Tailwind. */
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md
+         text-sm font-medium transition-colors disabled:opacity-50
+         disabled:cursor-not-allowed;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.btn-primary:hover { filter: brightness(1.05); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--accent-soft); }
+
+.btn-danger {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.btn-danger:hover { background: #fef2f2; }
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  color: var(--fg);
+  font-size: 14px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.input:hover, .select:hover, .textarea:hover { border-color: var(--accent); }
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/*
+ * Native <select> looks like the OS widget (the jarring blue dropdown). Strip
+ * the platform appearance and draw our own chevron so selects match inputs in
+ * every theme. The arrow is an inline SVG data-URI tinted to the muted fg.
+ */
+.select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+}
+/* The popup list itself can't be fully themed cross-browser, but we can at
+ * least make the options readable in dark mode on engines that honour it. */
+.select option { background: var(--bg-elev); color: var(--fg); }
+
+.kbd {
+  font-family: var(--font-mono, monospace);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--fg-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  position: sticky;
+  top: 0;
+}
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.table tr:hover td {
+  background: var(--accent-soft);
+}
+
+.badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+.badge-ok      { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+.badge-warn    { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+.badge-err     { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
+.badge-running { color: #1e40af; background: #dbeafe; border-color: #bfdbfe; }
+
+/* Sidebar item, used by AppShell. */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 2px 8px;
+  border-radius: 8px;
+  color: var(--fg);
+  font-size: 14px;
+}
+.nav-item:hover { background: var(--accent-soft); }
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}

@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/panel-server",
+    "crates/panel-persistence",
+    "crates/panel-auth",
+    "crates/panel-domain",
+    "crates/panel-core",
+    "crates/panel-core-xray",
+    "crates/panel-core-singbox",
+    "crates/panel-node",
+    "crates/panel-task",
+    "crates/panel-notify",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+authors = ["proxy-panel contributors"]
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "1"
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "sqlite",
+    "postgres",
+    "macros",
+    "migrate",
+    "chrono",
+] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+argon2 = "0.5"
+rand = "0.8"
+sha2 = "0.10"
+hex = "0.4"
+constant_time_eq = "0.4"
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4", "serde"] }
+base64 = "0.22"
+url = "2"
+russh = "0.45"
+rust-embed = "8"
+mime_guess = "2"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "smtp-transport", "builder"] }
+
+panel-persistence  = { path = "crates/panel-persistence" }
+panel-auth         = { path = "crates/panel-auth" }
+panel-domain       = { path = "crates/panel-domain" }
+panel-core         = { path = "crates/panel-core" }
+panel-core-xray    = { path = "crates/panel-core-xray" }
+panel-core-singbox = { path = "crates/panel-core-singbox" }
+panel-node         = { path = "crates/panel-node" }
+panel-task         = { path = "crates/panel-task" }
+panel-notify       = { path = "crates/panel-notify" }
+
+[profile.dev]
+opt-level = 0
+debug = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

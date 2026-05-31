@@ -1,0 +1,20 @@
+/target
+**/*.rs.bk
+*.pdb
+
+# editors
+.vscode/
+.idea/
+
+# local config / data
+/data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+.env
+.env.local
+
+# frontend
+/web/node_modules/
+/web/dist/

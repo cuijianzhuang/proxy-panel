@@ -1,0 +1,23 @@
+[package]
+name = "panel-auth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+tokio.workspace = true
+sqlx.workspace = true
+chrono.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+argon2.workspace = true
+rand.workspace = true
+sha2.workspace = true
+hex.workspace = true
+constant_time_eq.workspace = true
+async-trait.workspace = true
+panel-persistence.workspace = true
