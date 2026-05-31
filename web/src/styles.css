@@ -53,73 +53,133 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Reusable atoms — keep these to a minimum; pages style with Tailwind. */
+/* ============================================================
+ * Buttons
+ * ============================================================ */
 .btn {
-  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md
-         text-sm font-medium transition-colors disabled:opacity-50
-         disabled:cursor-not-allowed;
+  @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg
+         text-sm font-medium transition-all disabled:opacity-50
+         disabled:cursor-not-allowed select-none;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
+/* Primary — solid accent background */
 .btn-primary {
   background: var(--accent);
   color: var(--accent-fg);
+  box-shadow: 0 1px 2px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.12);
 }
-.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+  box-shadow: 0 3px 8px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.12);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) { transform: translateY(0); filter: brightness(.97); }
 
+/* Ghost — bordered, transparent */
 .btn-ghost {
   background: transparent;
   color: var(--fg);
   border: 1px solid var(--border);
 }
-.btn-ghost:hover { background: var(--accent-soft); }
+.btn-ghost:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 
+/* Danger */
 .btn-danger {
   background: transparent;
   color: #dc2626;
   border: 1px solid #fecaca;
 }
-.btn-danger:hover { background: #fef2f2; }
+.btn-danger:hover:not(:disabled) { background: #fef2f2; border-color: #f87171; }
+
+/* Size modifiers */
+.btn-sm { @apply px-2 py-1 text-xs rounded-md; }
+.btn-lg { @apply px-5 py-2.5 text-base rounded-xl; }
 
 .card {
   background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.03);
 }
 
+/* ============================================================
+ * Form controls — input / select / textarea
+ * ============================================================ */
 .input, .select, .textarea {
   width: 100%;
   background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
   color: var(--fg);
   font-size: 14px;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  line-height: 1.5;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
-.input:hover, .select:hover, .textarea:hover { border-color: var(--accent); }
+.input::placeholder, .textarea::placeholder { color: var(--fg-muted); opacity: .7; }
+.input:hover, .select:hover, .textarea:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
 .input:focus, .select:focus, .textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--accent) 18%, transparent);
+  background: var(--bg-elev);
 }
 
-/*
- * Native <select> looks like the OS widget (the jarring blue dropdown). Strip
- * the platform appearance and draw our own chevron so selects match inputs in
- * every theme. The arrow is an inline SVG data-URI tinted to the muted fg.
- */
+/* ============================================================
+ * Select — strip OS chrome, draw a crisp custom chevron
+ * ============================================================ */
 .select {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
   cursor: pointer;
-  padding-right: 2rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  padding-right: 2.2rem;
+  /* Chevron: slightly larger (14px), rounder, accent-tinted on hover handled
+   * by the filter below. We encode two colours so both light & dark look OK. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='%23a0aec0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M3 5l4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.65rem center;
+  background-position: right 0.6rem center;
+  /* Subtle inner bg to distinguish from plain inputs at a glance */
+  background-color: var(--bg-elev);
 }
-/* The popup list itself can't be fully themed cross-browser, but we can at
- * least make the options readable in dark mode on engines that honour it. */
+.select:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='%23ef2761' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M3 5l4 4 4-4'/%3E%3C/svg%3E");
+}
+/* Dark-mode chevron (accent differs) */
+[data-theme="dark"] .select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='%2394a3b8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M3 5l4 4 4-4'/%3E%3C/svg%3E");
+}
+[data-theme="dark"] .select:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='none' stroke='%23f472b6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' d='M3 5l4 4 4-4'/%3E%3C/svg%3E");
+}
 .select option { background: var(--bg-elev); color: var(--fg); }
+
+/* ============================================================
+ * Form label helper text
+ * ============================================================ */
+.field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.01em;
+}
+
+/* Textarea same rounding as inputs */
+.textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
 
 .kbd {
   font-family: var(--font-mono, monospace);
@@ -137,31 +197,42 @@ body {
 .table th {
   text-align: left;
   font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--fg-muted);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-elev);
+  padding: 8px 14px;
+  border-bottom: 1.5px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elev) 97%, var(--accent) 3%);
   position: sticky;
   top: 0;
+  white-space: nowrap;
 }
 .table td {
-  padding: 10px 12px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+.table tr:last-child td { border-bottom: none; }
+.table tbody tr {
+  transition: background 80ms ease;
+}
 .table tr:hover td {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
 }
 
 .badge {
   display: inline-flex;
-  padding: 2px 8px;
+  align-items: center;
+  padding: 2px 9px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   border: 1px solid var(--border);
   background: var(--bg-elev);
   color: var(--fg-muted);
+  white-space: nowrap;
 }
 .badge-ok      { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
 .badge-warn    { color: #92400e; background: #fef3c7; border-color: #fde68a; }

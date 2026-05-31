@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { I18nProvider } from "./lib/i18n";
 import { Account } from "./pages/Account";
 import { Audit } from "./pages/Audit";
 import { Backups } from "./pages/Backups";
@@ -18,11 +19,13 @@ import { Traffic } from "./pages/Traffic";
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routed />
-      </BrowserRouter>
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routed />
+        </BrowserRouter>
+      </AuthProvider>
+    </I18nProvider>
   );
 }
 

@@ -233,6 +233,9 @@ async fn main() -> anyhow::Result<()> {
                 .put(proxy_users::update)
                 .delete(proxy_users::delete),
         )
+        .route("/api/proxy-users/:id/reset-traffic", post(proxy_users::reset_traffic))
+        .route("/api/proxy-users/:id/kick",          post(proxy_users::kick))
+        .route("/api/proxy-users/:id/enable",        post(proxy_users::enable))
         .route("/api/nodes", get(nodes::list).post(nodes::create))
         .route(
             "/api/nodes/:id",
@@ -241,7 +244,9 @@ async fn main() -> anyhow::Result<()> {
                 .delete(nodes::delete),
         )
         .route("/api/nodes/:id/config", get(nodes::render_config))
-        .route("/api/nodes/:id/apply", post(tasks::apply_node))
+        .route("/api/nodes/:id/test-connection", post(nodes::test_connection))
+        .route("/api/nodes/:id/provision",       post(tasks::provision_node))
+        .route("/api/nodes/:id/apply",           post(tasks::apply_node))
         .route("/api/nodes/:id/restart", post(tasks::restart_node))
         .route("/api/nodes/:id/health-check", post(tasks::health_check_node))
         .route("/api/tasks", get(tasks::list))

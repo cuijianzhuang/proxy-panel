@@ -83,12 +83,16 @@ export type Listener = {
 export type Plan = {
   id: number;
   name: string;
+  description: string | null;
   quota_type: "permanent" | "monthly";
   quota_gb: number;
   quota_reset_day: number;
   duration_days: number | null;
   device_limit: number | null;
   speed_limit_mbps: number | null;
+  price_monthly: number | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type ProxyUser = {
@@ -100,12 +104,18 @@ export type ProxyUser = {
   enabled: boolean;
   quota_type: "permanent" | "monthly";
   quota_gb: number;
+  quota_reset_day: number;
   used_bytes: number;
   expires_at: string | null;
+  speed_limit_mbps: number | null;
+  device_limit: number | null;
   subscription_token: string;
   note: string | null;
   tags: string[];
   last_seen_at: string | null;
+  last_seen_ip: string | null;
+  last_reset_at: string | null;
+  created_at: string;
 };
 
 export type Node = {
@@ -119,6 +129,9 @@ export type Node = {
   mgmt_secret: string | null;
   ssh_port: number;
   ssh_user: string;
+  ssh_auth_method: "global" | "password" | "key";
+  /** Whether a per-node password/key is stored. The secret itself is never returned. */
+  has_ssh_credential: boolean;
   status: "pending" | "provisioning" | "online" | "offline" | "failed";
   last_seen_at: string | null;
   note: string | null;

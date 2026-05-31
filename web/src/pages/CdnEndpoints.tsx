@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, ApiError, CdnEndpoint } from "../lib/api";
 import { Modal } from "../components/Modal";
+import { SearchSelect } from "../components/SearchSelect";
 
 /*
  * CDN 优选 — a sorted list of domains / IPs that listeners with cdn_enabled
@@ -137,10 +138,14 @@ function CdnForm({ editing, onSaved }: { editing?: CdnEndpoint | null; onSaved: 
         </label>
         <label className="block">
           <span className="text-sm mb-1 block">类型</span>
-          <select className="select" value={kind} onChange={(e) => setKind(e.target.value as never)}>
-            <option value="domain">domain</option>
-            <option value="ip">ip</option>
-          </select>
+          <SearchSelect
+            value={kind}
+            onChange={(v) => setKind(v as never)}
+            options={[
+              { value: "domain", label: "domain", sub: "域名（CNAME）" },
+              { value: "ip",     label: "ip",     sub: "IP 地址" },
+            ]}
+          />
         </label>
       </div>
       <label className="block">

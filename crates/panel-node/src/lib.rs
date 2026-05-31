@@ -37,6 +37,12 @@ impl ExecOutput {
     }
 }
 
+impl Default for ExecOutput {
+    fn default() -> Self {
+        Self { exit_code: 0, stdout: String::new(), stderr: String::new() }
+    }
+}
+
 /// A proxy user the collector knows is attached to a node. The `email` is the
 /// key xray/sing-box report stats under (we set it to the user's name when
 /// rendering inbounds), so it's how real stats get matched back to an id.

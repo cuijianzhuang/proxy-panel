@@ -7,6 +7,10 @@ pub enum TaskKind {
     ApplyConfig,
     Restart,
     CheckHealth,
+    /// Install the core binary + systemd service on a fresh VPS, then write
+    /// the current config and start the service. Safe to re-run: skips
+    /// installation if the binary is already present.
+    Provision,
 }
 
 impl TaskKind {
@@ -15,6 +19,7 @@ impl TaskKind {
             Self::ApplyConfig => "apply_config",
             Self::Restart => "restart",
             Self::CheckHealth => "check_health",
+            Self::Provision => "provision",
         }
     }
     pub fn parse(s: &str) -> Option<Self> {
@@ -22,6 +27,7 @@ impl TaskKind {
             "apply_config" => Some(Self::ApplyConfig),
             "restart" => Some(Self::Restart),
             "check_health" => Some(Self::CheckHealth),
+            "provision" => Some(Self::Provision),
             _ => None,
         }
     }

@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, ApiError, CdnEndpoint, ChainProxy, Listener, Node } from "../lib/api";
+import { SearchSelect } from "../components/SearchSelect";
+import { useI18n } from "../lib/i18n";
 import { Modal } from "../components/Modal";
 
 export function Listeners() {
@@ -86,27 +88,49 @@ function ListenersView({
 
   const total = rows?.length ?? 0;
   const enabledTotal = (rows ?? []).filter((l) => l.enabled).length;
+  const { t } = useI18n();
 
   return (
     <div>
       <header className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">监听器</h1>
+          <h1 className="text-2xl font-semibold">{t.listeners.title}</h1>
           <p className="text-sm" style={{ color: "var(--fg-muted)" }}>
-            共 {total} 个入站配置,{enabledTotal} 个启用
+            {t.nav.listeners} · {total} {t.common.enabled}/{total}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select
-            className="select max-w-xs"
-            value={filterNode === "all" ? "all" : String(filterNode)}
-            onChange={(e) => setFilterNode(e.target.value === "all" ? "all" : Number(e.target.value))}
+          <div style={{ minWidth: 180 }}>
+            <SearchSelect
+              value={filterNode === "all" ? "all" : String(filterNode)}
+              onChange={(v) => setFilterNode(v === "all" ? "all" : Number(v))}
+              searchPlaceholder="搜索节点…"
+              options={[
+                { value: "all", label: "全部节点" },
+                ...nodes.map((n) => ({
+                  value: String(n.id),
+                  label: n.name,
+                  sub:   n.addr,
+                })),
+              ]}
+            />
+          </div>
+          <button
+            onClick={() => reload()}
+            className="btn btn-ghost btn-sm"
+            title="刷新列表"
+            style={{ fontSize: "1rem", lineHeight: 1, padding: "0.4rem 0.55rem" }}
+          >⟳</button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn btn-primary"
+            style={{ paddingLeft: "0.9rem", paddingRight: "1rem", whiteSpace: "nowrap" }}
           >
-            <option value="all">全部节点</option>
-            {nodes.map((n) => <option key={n.id} value={n.id}>#{n.id} {n.name}</option>)}
-          </select>
-          <button onClick={() => reload()} className="btn btn-ghost" title="刷新">⟳</button>
-          <button onClick={() => setShowNew(true)} className="btn btn-primary">＋ 新建监听器</button>
+            <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ flexShrink: 0 }}>
+              <path d="M6 1v10M1 6h10"/>
+            </svg>
+            {t.listeners.addListener}
+          </button>
         </div>
       </header>
 
@@ -226,11 +250,40 @@ function NodeGroup({
                 <td>{l.transport}</td>
                 <td>{l.tls_mode}</td>
                 <td className="font-mono">{l.port}</td>
-                <td>{l.enabled ? "✓" : "✗"}</td>
+                <td>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 8, height: 8,
+                      borderRadius: "50%",
+                      background: l.enabled ? "#22c55e" : "#e5e7eb",
+                      boxShadow: l.enabled ? "0 0 0 2px #bbf7d0" : undefined,
+                    }}
+                    title={l.enabled ? "已启用" : "已停用"}
+                  />
+                </td>
                 <td className="text-right">
-                  <div className="flex gap-2 justify-end">
-                    <button className="btn btn-ghost" onClick={() => onEdit(l)}>编辑</button>
-                    <button className="btn btn-danger" onClick={() => onRemove(l.id)}>删除</button>
+                  <div className="flex gap-1.5 justify-end">
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => onEdit(l)}
+                      title="编辑"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 2.5l1.5 1.5L4 11.5H2.5V10z"/>
+                      </svg>
+                      编辑
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => onRemove(l.id)}
+                      title="删除"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 4h10M5 4V2.5h4V4M5.5 6.5v4M8.5 6.5v4M3 4l.8 7.5h6.4L11 4"/>
+                      </svg>
+                      删除
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -511,15 +564,23 @@ function ListenerForm({
                 type="button"
                 key={p.key}
                 onClick={() => applyPreset(p.key)}
-                className="px-3 py-2 rounded-lg border text-left transition-colors"
+                className="text-left transition-all"
                 style={{
-                  background:   active ? "var(--accent-soft)" : "var(--bg-elev)",
-                  borderColor:  active ? "var(--accent)" : "var(--border)",
-                  color:        active ? "var(--accent)" : "var(--fg)",
+                  padding:       "0.45rem 0.75rem",
+                  borderRadius:  "10px",
+                  border:        active ? "1.5px solid var(--accent)" : "1.5px solid var(--border)",
+                  background:    active
+                    ? "linear-gradient(135deg, var(--accent-soft) 0%, color-mix(in srgb, var(--accent) 10%, white) 100%)"
+                    : "var(--bg-elev)",
+                  color:         active ? "var(--accent)" : "var(--fg)",
+                  boxShadow:     active
+                    ? "0 2px 8px color-mix(in srgb, var(--accent) 20%, transparent)"
+                    : "0 1px 2px rgba(0,0,0,.05)",
+                  transform:     active ? "translateY(-1px)" : "none",
                 }}
               >
-                <div className="text-sm font-medium leading-tight">{p.label}</div>
-                <div className="text-xs" style={{ color: "var(--fg-muted)" }}>{p.hint}</div>
+                <div className="text-sm font-semibold leading-tight">{p.label}</div>
+                <div className="text-xs mt-0.5" style={{ color: active ? "var(--accent)" : "var(--fg-muted)", opacity: active ? .8 : 1 }}>{p.hint}</div>
               </button>
             );
           })}
@@ -535,13 +596,20 @@ function ListenerForm({
         </label>
         <label className="block">
           <span className="text-sm mb-1 block">所属节点</span>
-          <select className="select" value={nodeId ?? ""}
-                  onChange={(e) => setNodeId(e.target.value ? Number(e.target.value) : null)}>
-            <option value="">— 不绑定 —</option>
-            {nodes.map((n) => (
-              <option key={n.id} value={n.id}>#{n.id} {n.name} ({n.core})</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={nodeId != null ? String(nodeId) : ""}
+            onChange={(v) => setNodeId(v ? Number(v) : null)}
+            placeholder="— 不绑定 —"
+            searchPlaceholder="搜索节点名称或地址…"
+            options={[
+              { value: "", label: "— 不绑定 —" },
+              ...nodes.map((n) => ({
+                value: String(n.id),
+                label: `${n.name} (${n.core})`,
+                sub: `#${n.id} · ${n.addr}`,
+              })),
+            ]}
+          />
         </label>
       </div>
 
@@ -550,32 +618,55 @@ function ListenerForm({
         <div className="grid grid-cols-4 gap-3">
           <label className="block">
             <span className="text-sm mb-1 block">内核</span>
-            <select className="select" value={core} onChange={(e) => setCore(e.target.value as never)}>
-              <option value="xray">xray</option>
-              <option value="singbox">sing-box</option>
-            </select>
+            <SearchSelect
+              value={core}
+              onChange={(v) => setCore(v as "xray" | "singbox")}
+              options={[
+                { value: "xray",    label: "Xray" },
+                { value: "singbox", label: "sing-box" },
+              ]}
+            />
           </label>
           <label className="block">
             <span className="text-sm mb-1 block">协议</span>
-            <select className="select" value={protocol} onChange={(e) => setProtocol(e.target.value)}>
-              {["vless", "vmess", "trojan", "shadowsocks", "hysteria2", "tuic"].map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+            <SearchSelect
+              value={protocol}
+              onChange={setProtocol}
+              options={[
+                { value: "vless",        label: "VLESS",        sub: "推荐" },
+                { value: "vmess",        label: "VMess" },
+                { value: "trojan",       label: "Trojan" },
+                { value: "shadowsocks",  label: "Shadowsocks",  sub: "SS / SS2022" },
+                { value: "hysteria2",    label: "Hysteria2",    sub: "QUIC, sing-box 独有" },
+                { value: "tuic",         label: "TUIC v5",      sub: "QUIC, sing-box 独有" },
+              ]}
+            />
           </label>
           <label className="block">
             <span className="text-sm mb-1 block">传输</span>
-            <select className="select" value={transport} onChange={(e) => setTransport(e.target.value)}>
-              {["tcp", "ws", "grpc", "xhttp", "quic"].map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <SearchSelect
+              value={transport}
+              onChange={setTransport}
+              options={[
+                { value: "tcp",   label: "TCP" },
+                { value: "ws",    label: "WebSocket", sub: "CDN 友好" },
+                { value: "grpc",  label: "gRPC",      sub: "抗探测" },
+                { value: "xhttp", label: "xhttp",     sub: "xray 专属" },
+                { value: "quic",  label: "QUIC",      sub: "Hysteria2/TUIC" },
+              ]}
+            />
           </label>
           <label className="block">
             <span className="text-sm mb-1 block">TLS</span>
-            <select className="select" value={tlsMode} onChange={(e) => setTlsMode(e.target.value as never)}>
-              <option value="none">none</option>
-              <option value="tls">tls</option>
-              <option value="reality">reality</option>
-            </select>
+            <SearchSelect
+              value={tlsMode}
+              onChange={(v) => setTlsMode(v as "none" | "tls" | "reality")}
+              options={[
+                { value: "none",    label: "none",    sub: "无加密" },
+                { value: "tls",     label: "TLS",     sub: "需证书" },
+                { value: "reality", label: "Reality", sub: "推荐, 无需证书" },
+              ]}
+            />
           </label>
         </div>
       ) : (
@@ -612,19 +703,21 @@ function ListenerForm({
         {cdnEnabled && (
           <label className="block">
             <span className="text-sm mb-1 block">指定端点</span>
-            <select
-              className="select"
-              value={cdnEndpointId ?? ""}
-              onChange={(e) => setCdnEndpointId(e.target.value ? Number(e.target.value) : null)}
+            <SearchSelect
+              value={cdnEndpointId != null ? String(cdnEndpointId) : ""}
+              onChange={(v) => setCdnEndpointId(v ? Number(v) : null)}
+              placeholder="— 自动(优先级最高的) —"
+              searchPlaceholder="搜索端点名称或地址…"
               disabled={cdnPool.length === 0}
-            >
-              <option value="">— 自动(用 sort_order 最小的) —</option>
-              {cdnPool.map((c) => (
-                <option key={c.id} value={c.id}>
-                  #{c.id} {c.name} · {c.address} ({c.kind}, sort {c.sort_order})
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "— 自动(sort_order 最小) —" },
+                ...cdnPool.map((c) => ({
+                  value: String(c.id),
+                  label: `${c.name} · ${c.address}`,
+                  sub:   `${c.kind} · 优先级 ${c.sort_order}`,
+                })),
+              ]}
+            />
           </label>
         )}
         <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
@@ -639,18 +732,20 @@ function ListenerForm({
         <legend className="text-sm font-semibold px-1">🔗 链式代理(出站)</legend>
         <label className="block">
           <span className="text-sm mb-1 block">将本入站的流量经由</span>
-          <select
-            className="select"
-            value={chainProxyId ?? ""}
-            onChange={(e) => setChainProxyId(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">— 直连(不走链式代理) —</option>
-            {chainPool.map((c) => (
-              <option key={c.id} value={c.id}>
-                #{c.id} {c.name} · {c.proxy_type}://{c.address}:{c.port}
-              </option>
-            ))}
-          </select>
+          <SearchSelect
+            value={chainProxyId != null ? String(chainProxyId) : ""}
+            onChange={(v) => setChainProxyId(v ? Number(v) : null)}
+            placeholder="— 直连(不走链式代理) —"
+            searchPlaceholder="搜索代理名称或地址…"
+            options={[
+              { value: "", label: "— 直连 —", sub: "不走链式代理" },
+              ...chainPool.map((c) => ({
+                value: String(c.id),
+                label: c.name,
+                sub:   `${c.proxy_type}://${c.address}:${c.port}`,
+              })),
+            ]}
+          />
         </label>
         <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
           {chainPool.length === 0
@@ -730,10 +825,14 @@ function ListenerForm({
       {protocol === "vless" && (transport === "tcp" || tlsMode === "reality") && (
         <label className="block">
           <span className="text-sm mb-1 block">flow</span>
-          <select className="select" value={flow} onChange={(e) => setFlow(e.target.value)}>
-            <option value="">(none)</option>
-            <option value="xtls-rprx-vision">xtls-rprx-vision (推荐 Reality)</option>
-          </select>
+          <SearchSelect
+            value={flow}
+            onChange={setFlow}
+            options={[
+              { value: "",                 label: "(none)" },
+              { value: "xtls-rprx-vision", label: "xtls-rprx-vision", sub: "推荐 Reality / Vision" },
+            ]}
+          />
         </label>
       )}
 
@@ -779,9 +878,15 @@ function ListenerForm({
           <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
             <label className="block">
               <span className="text-sm mb-1 block">method (cipher)</span>
-              <select className="select" value={ssMethod} onChange={(e) => setSsMethod(e.target.value)}>
-                {SS_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <SearchSelect
+                value={ssMethod}
+                onChange={setSsMethod}
+                options={SS_METHODS.map((m) => ({
+                  value: m,
+                  label: m,
+                  sub: m.startsWith("2022") ? "SS2022, 更安全" : undefined,
+                }))}
+              />
             </label>
             <div />
           </div>

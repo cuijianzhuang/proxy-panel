@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, ApiError, ChannelType, NotificationChannel, NotificationRule } from "../lib/api";
 import { Modal } from "../components/Modal";
+import { SearchSelect } from "../components/SearchSelect";
 
 /*
  * 告警通知 — two halves:
@@ -197,12 +198,15 @@ function NewChannelForm({ onCreated }: { onCreated: () => void }) {
         </label>
         <label className="block">
           <span className="text-sm mb-1 block">类型</span>
-          <select className="select" value={type}
-                  onChange={(e) => { setType(e.target.value as ChannelType); setCfg({}); }}>
-            <option value="telegram">telegram</option>
-            <option value="webhook">webhook</option>
-            <option value="smtp">smtp</option>
-          </select>
+          <SearchSelect
+            value={type}
+            onChange={(v) => { setType(v as ChannelType); setCfg({}); }}
+            options={[
+              { value: "telegram", label: "Telegram Bot", sub: "Bot API 推送消息" },
+              { value: "webhook",  label: "Webhook",      sub: "HTTP POST 自定义 URL" },
+              { value: "smtp",     label: "Email (SMTP)", sub: "发送邮件通知" },
+            ]}
+          />
         </label>
       </div>
 

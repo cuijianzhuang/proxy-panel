@@ -28,13 +28,16 @@ use russh::{ChannelMsg, Disconnect};
 
 use crate::{Error, ExecOutput, NodeRemote, Result, StatUser, UserDelta};
 
-/// SSH credentials. Today applied uniformly to every node; per-node overrides
-/// can be added by reading from `nodes` rows directly.
+/// SSH credentials. The `SshConfig` value is the panel-wide default; each
+/// node may override it via its own `ssh_auth_method` + stored secret (see
+/// `credential_for`).
 #[derive(Debug, Clone)]
 pub enum SshCredential {
     /// PEM/OpenSSH-format private key on disk. No passphrase support yet.
     KeyFile(PathBuf),
-    /// Plain password (testing only).
+    /// Inline PEM/OpenSSH private key text (per-node, stored in the DB).
+    InlineKey(String),
+    /// Plain password.
     Password(String),
 }
 
@@ -120,10 +123,23 @@ impl SshRemote {
             }
         })?;
 
-        match &self.config.cred {
+        // Per-node credential takes precedence over the panel-wide default.
+        let cred = self.credential_for(node);
+        match &cred {
             SshCredential::KeyFile(path) => {
                 let key: KeyPair = russh::keys::load_secret_key(path, None)
                     .map_err(|e| Error::Auth(format!("load key {}: {e}", path.display())))?;
+                let ok = handle
+                    .authenticate_publickey(&node.ssh_user, Arc::new(key))
+                    .await
+                    .map_err(|e| Error::Auth(format!("{e}")))?;
+                if !ok {
+                    return Err(Error::Auth("pubkey auth rejected".into()));
+                }
+            }
+            SshCredential::InlineKey(pem) => {
+                let key: KeyPair = russh::keys::decode_secret_key(pem, None)
+                    .map_err(|e| Error::Auth(format!("parse inline key: {e}")))?;
                 let ok = handle
                     .authenticate_publickey(&node.ssh_user, Arc::new(key))
                     .await
@@ -144,6 +160,25 @@ impl SshRemote {
         }
 
         Ok(handle)
+    }
+
+    /// Resolve which credential to use for `node`:
+    ///   - `ssh_auth_method == "password"` + a stored password → that password
+    ///   - `ssh_auth_method == "key"`      + a stored PEM      → that inline key
+    ///   - otherwise ("global", or method set but secret missing) → the
+    ///     panel-wide default from `SshConfig`.
+    fn credential_for(&self, node: &Node) -> SshCredential {
+        match node.ssh_auth_method.as_str() {
+            "password" => match node.ssh_password.as_deref().filter(|s| !s.is_empty()) {
+                Some(pw) => SshCredential::Password(pw.to_string()),
+                None => self.config.cred.clone(),
+            },
+            "key" => match node.ssh_private_key.as_deref().filter(|s| !s.is_empty()) {
+                Some(pem) => SshCredential::InlineKey(pem.to_string()),
+                None => self.config.cred.clone(),
+            },
+            _ => self.config.cred.clone(),
+        }
     }
 
     /// Open a session channel, run `cmd`, drain all output until exit-status.

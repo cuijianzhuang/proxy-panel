@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, ApiError, ChainProxy } from "../lib/api";
 import { Modal } from "../components/Modal";
+import { SearchSelect } from "../components/SearchSelect";
 
 /*
  * 链式代理 — outbound proxy chain. Listeners can route their traffic through
@@ -137,10 +138,14 @@ function ChainForm({ editing, onSaved }: { editing?: ChainProxy | null; onSaved:
       <div className="grid grid-cols-3 gap-3">
         <label className="block">
           <span className="text-sm mb-1 block">类型</span>
-          <select className="select" value={type} onChange={(e) => setType(e.target.value as never)}>
-            <option value="socks5">socks5</option>
-            <option value="http">http</option>
-          </select>
+          <SearchSelect
+            value={type}
+            onChange={(v) => setType(v as never)}
+            options={[
+              { value: "socks5", label: "SOCKS5", sub: "推荐，支持 UDP" },
+              { value: "http",   label: "HTTP",   sub: "HTTP CONNECT 代理" },
+            ]}
+          />
         </label>
         <label className="block col-span-2">
           <span className="text-sm mb-1 block">地址 + 端口</span>

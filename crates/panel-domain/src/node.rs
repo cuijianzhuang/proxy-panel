@@ -50,6 +50,20 @@ pub struct Node {
     pub mgmt_secret:  Option<String>,
     pub ssh_port:     i32,
     pub ssh_user:     String,
+    /// 'global' | 'password' | 'key'. Determines which credential the SSH
+    /// remote uses for this node (see migration 012).
+    pub ssh_auth_method: String,
+    /// Per-node SSH password. SECRET — skipped from API responses; only the
+    /// SSH layer reads it in-process.
+    #[serde(skip_serializing)]
+    pub ssh_password: Option<String>,
+    /// Per-node inline SSH private key (PEM). SECRET — skipped from API
+    /// responses; only the SSH layer reads it in-process.
+    #[serde(skip_serializing)]
+    pub ssh_private_key: Option<String>,
+    /// Computed flag so the UI can show "已配置凭据" without ever receiving
+    /// the secret itself. Set during row mapping, not stored as a column.
+    pub has_ssh_credential: bool,
     pub status:       NodeStatus,
     pub last_seen_at: Option<DateTime<Utc>>,
     pub note:         Option<String>,
@@ -75,6 +89,12 @@ pub struct CreateNode {
     pub ssh_port:     i32,
     #[serde(default = "default_ssh_user")]
     pub ssh_user:     String,
+    #[serde(default = "default_ssh_auth_method")]
+    pub ssh_auth_method: String,
+    #[serde(default)]
+    pub ssh_password:    Option<String>,
+    #[serde(default)]
+    pub ssh_private_key: Option<String>,
     #[serde(default)]
     pub note:         Option<String>,
 }
@@ -90,6 +110,12 @@ pub struct UpdateNode {
     pub mgmt_secret:  Option<Option<String>>,
     pub ssh_port:     Option<i32>,
     pub ssh_user:     Option<String>,
+    pub ssh_auth_method: Option<String>,
+    /// Secret update semantics: `None` (field absent) = leave as-is; `Some("")`
+    /// = clear; `Some(value)` = replace. Lets the edit form omit the secret to
+    /// keep the existing one without re-typing it.
+    pub ssh_password:    Option<String>,
+    pub ssh_private_key: Option<String>,
     pub status:       Option<NodeStatus>,
     pub note:         Option<Option<String>>,
 }
@@ -99,6 +125,9 @@ fn default_ssh_port() -> i32 {
 }
 fn default_ssh_user() -> String {
     "root".to_string()
+}
+fn default_ssh_auth_method() -> String {
+    "global".to_string()
 }
 
 impl CreateNode {
@@ -122,8 +151,8 @@ impl CreateNode {
 }
 
 const COLS: &str = "id, name, addr, public_host, core, core_version, mgmt_port, mgmt_secret, \
-                    ssh_port, ssh_user, status, last_seen_at, note, ssh_host_fingerprint, \
-                    created_at, updated_at";
+                    ssh_port, ssh_user, ssh_auth_method, ssh_password, ssh_private_key, \
+                    status, last_seen_at, note, ssh_host_fingerprint, created_at, updated_at";
 
 #[derive(Clone)]
 pub struct NodeRepo {
@@ -203,8 +232,9 @@ impl NodeRepo {
         let id = match &self.db {
             Database::Sqlite(pool) => sqlx::query(
                 "INSERT INTO nodes (name, addr, public_host, core, mgmt_port, mgmt_secret, \
-                                    ssh_port, ssh_user, note) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                                    ssh_port, ssh_user, ssh_auth_method, ssh_password, \
+                                    ssh_private_key, note) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             )
             .bind(&input.name)
             .bind(&input.addr)
@@ -214,14 +244,18 @@ impl NodeRepo {
             .bind(input.mgmt_secret.as_deref())
             .bind(input.ssh_port)
             .bind(&input.ssh_user)
+            .bind(&input.ssh_auth_method)
+            .bind(input.ssh_password.as_deref().filter(|s| !s.is_empty()))
+            .bind(input.ssh_private_key.as_deref().filter(|s| !s.is_empty()))
             .bind(input.note.as_deref())
             .fetch_one(pool)
             .await?
             .try_get::<i64, _>("id")?,
             Database::Postgres(pool) => sqlx::query(
                 "INSERT INTO nodes (name, addr, public_host, core, mgmt_port, mgmt_secret, \
-                                    ssh_port, ssh_user, note) \
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+                                    ssh_port, ssh_user, ssh_auth_method, ssh_password, \
+                                    ssh_private_key, note) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id",
             )
             .bind(&input.name)
             .bind(&input.addr)
@@ -231,6 +265,9 @@ impl NodeRepo {
             .bind(input.mgmt_secret.as_deref())
             .bind(input.ssh_port)
             .bind(&input.ssh_user)
+            .bind(&input.ssh_auth_method)
+            .bind(input.ssh_password.as_deref().filter(|s| !s.is_empty()))
+            .bind(input.ssh_private_key.as_deref().filter(|s| !s.is_empty()))
             .bind(input.note.as_deref())
             .fetch_one(pool)
             .await?
@@ -269,6 +306,16 @@ impl NodeRepo {
         if let Some(v) = patch.ssh_user {
             next.ssh_user = v;
         }
+        if let Some(v) = patch.ssh_auth_method {
+            next.ssh_auth_method = v;
+        }
+        // Secret semantics: absent → leave; "" → clear; value → replace.
+        if let Some(v) = patch.ssh_password {
+            next.ssh_password = if v.is_empty() { None } else { Some(v) };
+        }
+        if let Some(v) = patch.ssh_private_key {
+            next.ssh_private_key = if v.is_empty() { None } else { Some(v) };
+        }
         if let Some(v) = patch.status {
             next.status = v;
         }
@@ -284,7 +331,8 @@ impl NodeRepo {
             Database::Sqlite(pool) => {
                 sqlx::query(
                     "UPDATE nodes SET name=?, addr=?, public_host=?, core=?, core_version=?, \
-                       mgmt_port=?, mgmt_secret=?, ssh_port=?, ssh_user=?, status=?, note=?, \
+                       mgmt_port=?, mgmt_secret=?, ssh_port=?, ssh_user=?, ssh_auth_method=?, \
+                       ssh_password=?, ssh_private_key=?, status=?, note=?, \
                        updated_at=? WHERE id=?",
                 )
                 .bind(&next.name)
@@ -296,6 +344,9 @@ impl NodeRepo {
                 .bind(next.mgmt_secret.as_deref())
                 .bind(next.ssh_port)
                 .bind(&next.ssh_user)
+                .bind(&next.ssh_auth_method)
+                .bind(next.ssh_password.as_deref())
+                .bind(next.ssh_private_key.as_deref())
                 .bind(next.status.as_str())
                 .bind(next.note.as_deref())
                 .bind(now)
@@ -306,8 +357,9 @@ impl NodeRepo {
             Database::Postgres(pool) => {
                 sqlx::query(
                     "UPDATE nodes SET name=$1, addr=$2, public_host=$3, core=$4, core_version=$5, \
-                       mgmt_port=$6, mgmt_secret=$7, ssh_port=$8, ssh_user=$9, status=$10, note=$11, \
-                       updated_at=$12 WHERE id=$13",
+                       mgmt_port=$6, mgmt_secret=$7, ssh_port=$8, ssh_user=$9, ssh_auth_method=$10, \
+                       ssh_password=$11, ssh_private_key=$12, status=$13, note=$14, \
+                       updated_at=$15 WHERE id=$16",
                 )
                 .bind(&next.name)
                 .bind(&next.addr)
@@ -318,6 +370,9 @@ impl NodeRepo {
                 .bind(next.mgmt_secret.as_deref())
                 .bind(next.ssh_port)
                 .bind(&next.ssh_user)
+                .bind(&next.ssh_auth_method)
+                .bind(next.ssh_password.as_deref())
+                .bind(next.ssh_private_key.as_deref())
                 .bind(next.status.as_str())
                 .bind(next.note.as_deref())
                 .bind(now)
@@ -349,6 +404,11 @@ impl NodeRepo {
 fn map_sqlite(row: sqlx::sqlite::SqliteRow) -> Result<Node> {
     let core: String = row.try_get("core")?;
     let status: String = row.try_get("status")?;
+    let ssh_password: Option<String> = row.try_get("ssh_password")?;
+    let ssh_private_key: Option<String> = row.try_get("ssh_private_key")?;
+    let has_ssh_credential =
+        ssh_password.as_deref().is_some_and(|s| !s.is_empty())
+            || ssh_private_key.as_deref().is_some_and(|s| !s.is_empty());
     Ok(Node {
         id:           row.try_get("id")?,
         name:         row.try_get("name")?,
@@ -360,6 +420,10 @@ fn map_sqlite(row: sqlx::sqlite::SqliteRow) -> Result<Node> {
         mgmt_secret:  row.try_get("mgmt_secret")?,
         ssh_port:     row.try_get("ssh_port")?,
         ssh_user:     row.try_get("ssh_user")?,
+        ssh_auth_method: row.try_get("ssh_auth_method")?,
+        ssh_password,
+        ssh_private_key,
+        has_ssh_credential,
         status:       NodeStatus::parse(&status)?,
         last_seen_at: row.try_get("last_seen_at")?,
         note:         row.try_get("note")?,
@@ -372,6 +436,11 @@ fn map_sqlite(row: sqlx::sqlite::SqliteRow) -> Result<Node> {
 fn map_postgres(row: sqlx::postgres::PgRow) -> Result<Node> {
     let core: String = row.try_get("core")?;
     let status: String = row.try_get("status")?;
+    let ssh_password: Option<String> = row.try_get("ssh_password")?;
+    let ssh_private_key: Option<String> = row.try_get("ssh_private_key")?;
+    let has_ssh_credential =
+        ssh_password.as_deref().is_some_and(|s| !s.is_empty())
+            || ssh_private_key.as_deref().is_some_and(|s| !s.is_empty());
     Ok(Node {
         id:           row.try_get("id")?,
         name:         row.try_get("name")?,
@@ -383,6 +452,10 @@ fn map_postgres(row: sqlx::postgres::PgRow) -> Result<Node> {
         mgmt_secret:  row.try_get("mgmt_secret")?,
         ssh_port:     row.try_get("ssh_port")?,
         ssh_user:     row.try_get("ssh_user")?,
+        ssh_auth_method: row.try_get("ssh_auth_method")?,
+        ssh_password,
+        ssh_private_key,
+        has_ssh_credential,
         status:       NodeStatus::parse(&status)?,
         last_seen_at: row.try_get("last_seen_at")?,
         note:         row.try_get("note")?,

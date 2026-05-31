@@ -32,6 +32,7 @@ impl QuotaType {
 pub struct Plan {
     pub id:                i64,
     pub name:              String,
+    pub description:       Option<String>,
     pub quota_type:        QuotaType,
     /// 0 = unlimited.
     pub quota_gb:          f64,
@@ -39,6 +40,8 @@ pub struct Plan {
     pub duration_days:     Option<i32>,
     pub device_limit:      Option<i32>,
     pub speed_limit_mbps:  Option<i32>,
+    /// Display-only monthly price (e.g. CNY / USD). Not enforced by the panel.
+    pub price_monthly:     Option<f64>,
     pub created_at:        DateTime<Utc>,
     pub updated_at:        DateTime<Utc>,
 }
@@ -46,6 +49,8 @@ pub struct Plan {
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreatePlan {
     pub name:              String,
+    #[serde(default)]
+    pub description:       Option<String>,
     #[serde(default = "default_quota_type")]
     pub quota_type:        QuotaType,
     #[serde(default)]
@@ -55,17 +60,21 @@ pub struct CreatePlan {
     pub duration_days:     Option<i32>,
     pub device_limit:      Option<i32>,
     pub speed_limit_mbps:  Option<i32>,
+    #[serde(default)]
+    pub price_monthly:     Option<f64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct UpdatePlan {
     pub name:              Option<String>,
+    pub description:       Option<Option<String>>,
     pub quota_type:        Option<QuotaType>,
     pub quota_gb:          Option<f64>,
     pub quota_reset_day:   Option<i32>,
     pub duration_days:     Option<Option<i32>>,
     pub device_limit:      Option<Option<i32>>,
     pub speed_limit_mbps:  Option<Option<i32>>,
+    pub price_monthly:     Option<Option<f64>>,
 }
 
 fn default_quota_type() -> QuotaType {
@@ -95,8 +104,9 @@ pub struct PlanRepo {
     db: Database,
 }
 
-const COLS: &str = "id, name, quota_type, quota_gb, quota_reset_day, duration_days, \
-                    device_limit, speed_limit_mbps, created_at, updated_at";
+const COLS: &str = "id, name, description, quota_type, quota_gb, quota_reset_day, \
+                    duration_days, device_limit, speed_limit_mbps, price_monthly, \
+                    created_at, updated_at";
 
 impl PlanRepo {
     pub fn new(db: Database) -> Self {
@@ -154,31 +164,37 @@ impl PlanRepo {
         let id = match &self.db {
             Database::Sqlite(pool) => sqlx::query(
                 "INSERT INTO plans \
-                   (name, quota_type, quota_gb, quota_reset_day, duration_days, device_limit, speed_limit_mbps) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                   (name, description, quota_type, quota_gb, quota_reset_day, duration_days, \
+                    device_limit, speed_limit_mbps, price_monthly) \
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             )
             .bind(&input.name)
+            .bind(input.description.as_deref())
             .bind(input.quota_type.as_str())
             .bind(input.quota_gb)
             .bind(input.quota_reset_day)
             .bind(input.duration_days)
             .bind(input.device_limit)
             .bind(input.speed_limit_mbps)
+            .bind(input.price_monthly)
             .fetch_one(pool)
             .await?
             .try_get::<i64, _>("id")?,
             Database::Postgres(pool) => sqlx::query(
                 "INSERT INTO plans \
-                   (name, quota_type, quota_gb, quota_reset_day, duration_days, device_limit, speed_limit_mbps) \
-                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+                   (name, description, quota_type, quota_gb, quota_reset_day, duration_days, \
+                    device_limit, speed_limit_mbps, price_monthly) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
             )
             .bind(&input.name)
+            .bind(input.description.as_deref())
             .bind(input.quota_type.as_str())
             .bind(input.quota_gb)
             .bind(input.quota_reset_day)
             .bind(input.duration_days)
             .bind(input.device_limit)
             .bind(input.speed_limit_mbps)
+            .bind(input.price_monthly)
             .fetch_one(pool)
             .await?
             .try_get::<i64, _>("id")?,
@@ -191,12 +207,14 @@ impl PlanRepo {
         let next = Plan {
             id:                existing.id,
             name:              patch.name.unwrap_or(existing.name),
+            description:       patch.description.unwrap_or(existing.description),
             quota_type:        patch.quota_type.unwrap_or(existing.quota_type),
             quota_gb:          patch.quota_gb.unwrap_or(existing.quota_gb),
             quota_reset_day:   patch.quota_reset_day.unwrap_or(existing.quota_reset_day),
             duration_days:     patch.duration_days.unwrap_or(existing.duration_days),
             device_limit:      patch.device_limit.unwrap_or(existing.device_limit),
             speed_limit_mbps:  patch.speed_limit_mbps.unwrap_or(existing.speed_limit_mbps),
+            price_monthly:     patch.price_monthly.unwrap_or(existing.price_monthly),
             created_at:        existing.created_at,
             updated_at:        existing.updated_at,
         };
@@ -207,16 +225,18 @@ impl PlanRepo {
         match &self.db {
             Database::Sqlite(pool) => {
                 sqlx::query(
-                    "UPDATE plans SET name=?, quota_type=?, quota_gb=?, quota_reset_day=?, \
-                       duration_days=?, device_limit=?, speed_limit_mbps=?, updated_at=? WHERE id=?",
+                    "UPDATE plans SET name=?, description=?, quota_type=?, quota_gb=?, quota_reset_day=?, \
+                       duration_days=?, device_limit=?, speed_limit_mbps=?, price_monthly=?, updated_at=? WHERE id=?",
                 )
                 .bind(&next.name)
+                .bind(next.description.as_deref())
                 .bind(next.quota_type.as_str())
                 .bind(next.quota_gb)
                 .bind(next.quota_reset_day)
                 .bind(next.duration_days)
                 .bind(next.device_limit)
                 .bind(next.speed_limit_mbps)
+                .bind(next.price_monthly)
                 .bind(now)
                 .bind(id)
                 .execute(pool)
@@ -224,16 +244,18 @@ impl PlanRepo {
             }
             Database::Postgres(pool) => {
                 sqlx::query(
-                    "UPDATE plans SET name=$1, quota_type=$2, quota_gb=$3, quota_reset_day=$4, \
-                       duration_days=$5, device_limit=$6, speed_limit_mbps=$7, updated_at=$8 WHERE id=$9",
+                    "UPDATE plans SET name=$1, description=$2, quota_type=$3, quota_gb=$4, quota_reset_day=$5, \
+                       duration_days=$6, device_limit=$7, speed_limit_mbps=$8, price_monthly=$9, updated_at=$10 WHERE id=$11",
                 )
                 .bind(&next.name)
+                .bind(next.description.as_deref())
                 .bind(next.quota_type.as_str())
                 .bind(next.quota_gb)
                 .bind(next.quota_reset_day)
                 .bind(next.duration_days)
                 .bind(next.device_limit)
                 .bind(next.speed_limit_mbps)
+                .bind(next.price_monthly)
                 .bind(now)
                 .bind(id)
                 .execute(pool)
@@ -265,12 +287,14 @@ fn map_sqlite(row: sqlx::sqlite::SqliteRow) -> Result<Plan> {
     Ok(Plan {
         id:                row.try_get("id")?,
         name:              row.try_get("name")?,
+        description:       row.try_get("description")?,
         quota_type:        QuotaType::parse(&qt)?,
         quota_gb:          row.try_get("quota_gb")?,
         quota_reset_day:   row.try_get("quota_reset_day")?,
         duration_days:     row.try_get("duration_days")?,
         device_limit:      row.try_get("device_limit")?,
         speed_limit_mbps:  row.try_get("speed_limit_mbps")?,
+        price_monthly:     row.try_get("price_monthly")?,
         created_at:        row.try_get("created_at")?,
         updated_at:        row.try_get("updated_at")?,
     })
@@ -281,12 +305,14 @@ fn map_postgres(row: sqlx::postgres::PgRow) -> Result<Plan> {
     Ok(Plan {
         id:                row.try_get("id")?,
         name:              row.try_get("name")?,
+        description:       row.try_get("description")?,
         quota_type:        QuotaType::parse(&qt)?,
         quota_gb:          row.try_get("quota_gb")?,
         quota_reset_day:   row.try_get("quota_reset_day")?,
         duration_days:     row.try_get("duration_days")?,
         device_limit:      row.try_get("device_limit")?,
         speed_limit_mbps:  row.try_get("speed_limit_mbps")?,
+        price_monthly:     row.try_get("price_monthly")?,
         created_at:        row.try_get("created_at")?,
         updated_at:        row.try_get("updated_at")?,
     })

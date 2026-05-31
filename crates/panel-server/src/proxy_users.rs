@@ -5,6 +5,7 @@
 use axum::extract::{Path, State};
 use axum::Json;
 use panel_domain::{CreateProxyUser, ProxyUser, UpdateProxyUser};
+use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -132,3 +133,58 @@ pub async fn detach(
     }
     Ok(Json(json!({ "ok": true })))
 }
+
+// ---------------------------------------------------------------------------
+// Extra user actions
+// ---------------------------------------------------------------------------
+
+/// `POST /api/proxy-users/:id/reset-traffic`
+/// Zero the user's `used_bytes` counter.
+pub async fn reset_traffic(
+    _: RequireAdmin,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<ProxyUser>, ApiError> {
+    let user = state.proxy_users.reset_traffic(id).await
+        .map_err(|e| ApiError::internal(e))?;
+    Ok(Json(user))
+}
+
+/// `POST /api/proxy-users/:id/kick`
+/// Disable + rotate subscription token → existing clients reconnect on next
+/// poll and find they can no longer authenticate. Re-enable manually.
+pub async fn kick(
+    _: RequireAdmin,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<ProxyUser>, ApiError> {
+    if state.proxy_users.find(id).await?.is_none() {
+        return Err(ApiError::new(axum::http::StatusCode::NOT_FOUND, "user not found"));
+    }
+    let user = state.proxy_users.update(id, UpdateProxyUser {
+        enabled:                   Some(false),
+        rotate_subscription_token: Some(true),
+        ..Default::default()
+    }).await?;
+    Ok(Json(user))
+}
+
+/// `POST /api/proxy-users/:id/enable`
+/// Re-enable a previously disabled / kicked user.
+pub async fn enable(
+    _: RequireAdmin,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<ProxyUser>, ApiError> {
+    if state.proxy_users.find(id).await?.is_none() {
+        return Err(ApiError::new(axum::http::StatusCode::NOT_FOUND, "user not found"));
+    }
+    let user = state.proxy_users.update(id, UpdateProxyUser {
+        enabled: Some(true),
+        ..Default::default()
+    }).await?;
+    Ok(Json(user))
+}
+
+// suppress the unused chrono import warning if used indirectly
+const _: fn() = || { let _ = Utc::now(); };

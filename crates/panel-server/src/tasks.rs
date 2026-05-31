@@ -103,6 +103,35 @@ pub async fn restart_node(
     ))
 }
 
+/// Enqueue a `provision` task — install the core binary + systemd service on
+/// a fresh VPS, then write the current config and start the service.
+/// Safe to re-run: skips installation if the binary is already present.
+pub async fn provision_node(
+    _: RequireAdmin,
+    State(state): State<AppState>,
+    Path(node_id): Path<i64>,
+) -> Result<(axum::http::StatusCode, Json<serde_json::Value>), ApiError> {
+    if state.nodes.find(node_id).await?.is_none() {
+        return Err(ApiError::new(
+            axum::http::StatusCode::NOT_FOUND,
+            "node not found",
+        ));
+    }
+    let task = state
+        .tasks
+        .enqueue(NewTask {
+            node_id,
+            kind:    TaskKind::Provision,
+            payload: json!({}),
+        })
+        .await
+        .map_err(|e| ApiError::internal(e))?;
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(json!({ "task_id": task.id, "status": task.status })),
+    ))
+}
+
 /// Enqueue a `check_health` task.
 pub async fn health_check_node(
     _: RequireAdmin,

@@ -45,6 +45,24 @@ pub async fn update(
     Ok(Json(state.nodes.update(id, patch).await?))
 }
 
+/// `POST /api/nodes/:id/test-connection` — open an SSH session and run a
+/// trivial command, returning the remote identity (uname) on success. Lets the
+/// operator verify per-node credentials before pushing a real config. In
+/// dry-run remote mode this returns the simulated identity.
+pub async fn test_connection(
+    _: RequireAdmin,
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let node = state.nodes.find(id).await?.ok_or_else(|| {
+        ApiError::new(axum::http::StatusCode::NOT_FOUND, "node not found")
+    })?;
+    match state.remote.ping(&node).await {
+        Ok(ident) => Ok(Json(json!({ "ok": true, "identity": ident }))),
+        Err(e) => Ok(Json(json!({ "ok": false, "error": e.to_string() }))),
+    }
+}
+
 pub async fn delete(
     _: RequireAdmin,
     State(state): State<AppState>,

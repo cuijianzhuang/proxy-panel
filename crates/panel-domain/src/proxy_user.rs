@@ -468,6 +468,36 @@ impl ProxyUserRepo {
         };
         Ok(n > 0)
     }
+
+    /// Zero the user's traffic counter and record the reset time.
+    pub async fn reset_traffic(&self, id: i64) -> Result<ProxyUser> {
+        let now = chrono::Utc::now();
+        match &self.db {
+            Database::Sqlite(pool) => {
+                sqlx::query(
+                    "UPDATE proxy_users SET used_bytes = 0, last_reset_at = ?, \
+                     updated_at = ? WHERE id = ?",
+                )
+                .bind(now)
+                .bind(now)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            }
+            Database::Postgres(pool) => {
+                sqlx::query(
+                    "UPDATE proxy_users SET used_bytes = 0, last_reset_at = $1, \
+                     updated_at = $2 WHERE id = $3",
+                )
+                .bind(now)
+                .bind(now)
+                .bind(id)
+                .execute(pool)
+                .await?;
+            }
+        }
+        self.find(id).await?.ok_or(Error::NotFound)
+    }
 }
 
 // ============================================================================
