@@ -242,14 +242,17 @@ do_config() {
   echo "  (直接回车保留当前值)"
   echo ""
 
+  # 注意: printf 必须写到 /dev/tty，否则被 $() 一起捕获进变量
   _prompt() {
     local key="$1" desc="$2" cur="$3" hidden="${4:-}"
     if [ "$hidden" = "hidden" ]; then
-      printf "  %-22s [%s] : " "$desc" "***" && read -rs val; echo ""
+      printf "  %-22s [%s] : " "$desc" "***" > /dev/tty
+      read -rs val < /dev/tty; printf "\n" > /dev/tty
     else
-      printf "  %-22s [%s] : " "$desc" "$cur" && read -r val
+      printf "  %-22s [%s] : " "$desc" "$cur" > /dev/tty
+      read -r val < /dev/tty
     fi
-    echo "${val:-$cur}"
+    printf "%s" "${val:-$cur}"
   }
 
   BIND=$(_prompt    PANEL_BIND          "监听地址:端口"       "${PANEL_BIND}")

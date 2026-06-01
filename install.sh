@@ -492,16 +492,17 @@ do_config() {
   echo "  (直接回车保留当前值)"
   echo ""
 
+  # 注意: printf 必须重定向到 /dev/tty（或 >&2），否则提示文字会被 $() 一起捕获
   _prompt() {
     local desc="$1" cur="$2" hidden="${3:-}"
     if [ "$hidden" = "hidden" ]; then
-      printf "  %-24s [%s] : " "$desc" "***"
-      read -rs val; echo ""
+      printf "  %-24s [%s] : " "$desc" "***" > /dev/tty
+      read -rs val < /dev/tty; printf "\n" > /dev/tty
     else
-      printf "  %-24s [%s] : " "$desc" "$cur"
-      read -r val
+      printf "  %-24s [%s] : " "$desc" "$cur" > /dev/tty
+      read -r val < /dev/tty
     fi
-    echo "${val:-$cur}"
+    printf "%s" "${val:-$cur}"
   }
 
   local bind db remote sshkey pw secure
