@@ -32,16 +32,28 @@ _section() { echo -e "\n${BOLD}${MAGENTA}$*${NC}"; }
 
 # ── .env 读取 ─────────────────────────────────────────────────────────────────
 load_env() {
-  if [ -f "$ENV_FILE" ]; then
-    # 逐行解析：忽略注释 / 空行，export KEY=VALUE
-    while IFS= read -r line || [ -n "$line" ]; do
-      [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-      key="${line%%=*}"; val="${line#*=}"
-      # 去掉两端引号
-      val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
-      export "$key=$val"
-    done < "$ENV_FILE"
-  fi
+  [ -f "$ENV_FILE" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    # 去掉 Windows CRLF 的 \r
+    line="${line%$'\r'}"
+    # 忽略注释行和空行
+    case "$line" in \#*|"") continue ;; esac
+    # 只处理包含 = 的行
+    case "$line" in *=*) ;; *) continue ;; esac
+    key="${line%%=*}"
+    val="${line#*=}"
+    # 去掉值两端的引号（单引号 / 双引号）和前后空白
+    val="${val#\"}" ; val="${val%\"}"
+    val="${val#\'}" ; val="${val%\'}"
+    # trim 前后空白（含 \r）
+    val="${val#"${val%%[! $'\t'$'\r']*}"}"
+    val="${val%"${val##*[! $'\t'$'\r']}"}"
+    # key 也 trim
+    key="${key#"${key%%[! ]*}"}"
+    key="${key%"${key##*[! ]}"}"
+    [ -z "$key" ] && continue
+    export "$key=$val"
+  done < "$ENV_FILE"
 }
 
 # ── 默认值（.env 可覆盖，环境变量最终优先）──────────────────────────────────
@@ -59,6 +71,19 @@ apply_defaults() {
 
 load_env
 apply_defaults
+
+# ── 快速校验关键变量（防止 CRLF / 引号残留导致 Rust 报解析错误）────────────
+_validate_env() {
+  local bind="$PANEL_BIND"
+  # 必须形如 host:port，port 为纯数字
+  if ! echo "$bind" | grep -qE '^[^:]+:[0-9]+$'; then
+    _err "PANEL_BIND 格式无效: '$bind'"
+    _err "请检查 .env 文件是否存在 Windows 换行符(CRLF)或多余引号"
+    _err "正确格式示例: PANEL_BIND=127.0.0.1:8080"
+    exit 1
+  fi
+}
+_validate_env
 
 # ── 构建模式 ─────────────────────────────────────────────────────────────────
 PROFILE="dev"
