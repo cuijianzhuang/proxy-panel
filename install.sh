@@ -262,11 +262,38 @@ do_install() {
 
   mkdir -p "$DATA_DIR"
 
-  # 首次安装时引导配置
+  # 首次安装时：从 .env.example 生成默认 .env，无需交互
   if [ ! -f "$ENV_FILE" ]; then
     echo ""
-    _info "检测到首次安装，进入配置向导..."
-    do_config
+    # 优先从仓库中的 .env.example 复制
+    local example_file
+    example_file="$(dirname "$0")/.env.example"
+    if [ -f "$example_file" ]; then
+      cp "$example_file" "$ENV_FILE"
+      # 把 DATABASE_URL 中路径改为实际安装目录
+      sed -i "s|sqlite://./data/|sqlite://${DATA_DIR}/|g" "$ENV_FILE" 2>/dev/null || true
+      _ok "已从 .env.example 生成默认配置: ${ENV_FILE}"
+      _info "如需修改配置，运行: $0 config"
+    else
+      # fallback：写一份最小默认配置
+      cat > "$ENV_FILE" <<DEFAULTENV
+# proxy-panel 默认配置 — 生成于 $(date '+%Y-%m-%d %H:%M:%S')
+# 运行 ./install.sh config 进行交互式配置
+
+PANEL_BIND=0.0.0.0:8080
+DATABASE_URL=sqlite://${DATA_DIR}/panel.db
+PANEL_REMOTE_MODE=dry-run
+PANEL_SSH_KEY=
+PANEL_ADMIN_PASSWORD=
+PANEL_COOKIE_SECURE=0
+RUST_LOG=info,sqlx=warn
+DEFAULTENV
+      _ok "已生成默认配置: ${ENV_FILE}"
+      _info "如需修改配置，运行: $0 config"
+    fi
+    load_env
+    apply_defaults
+    _validate_bind
   fi
 
   echo ""
