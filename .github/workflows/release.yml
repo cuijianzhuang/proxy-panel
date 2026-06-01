@@ -1,0 +1,191 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── 1. 构建前端（web/dist 供 rust-embed 嵌入）──────────────────────────────
+  build-web:
+    name: 构建前端
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: 安装前端依赖
+        working-directory: web
+        run: npm ci
+
+      - name: 构建前端
+        working-directory: web
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 1
+
+  # ── 2. 多平台后端编译 ────────────────────────────────────────────────────────
+  build-binary:
+    name: 构建 ${{ matrix.artifact }}
+    needs: build-web
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64 静态二进制（musl）
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact: panel-server-linux-x86_64
+            cross: false
+
+          # Linux ARM64 静态二进制（musl，cross 交叉编译）
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact: panel-server-linux-aarch64
+            cross: true
+
+          # macOS Intel
+          - target: x86_64-apple-darwin
+            os: macos-13
+            artifact: panel-server-darwin-x86_64
+            cross: false
+
+          # macOS Apple Silicon
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: panel-server-darwin-aarch64
+            cross: false
+
+          # Windows x86_64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: panel-server-windows-x86_64
+            cross: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-embed 在编译时读取 web/dist，必须先放好
+      - name: 下载前端产物
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist/
+
+      - name: 安装 Rust 稳定版
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: 缓存编译产物
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # musl 静态编译工具链（x86_64）
+      - name: 安装 musl-tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update -q && sudo apt-get install -y musl-tools
+
+      # cross 用于 ARM64 交叉编译（通过 Docker）
+      - name: 安装 cross
+        if: matrix.cross == true
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: 构建（cross）
+        if: matrix.cross == true
+        run: cross build --release --target ${{ matrix.target }} -p panel-server
+
+      - name: 构建（cargo）
+        if: matrix.cross == false
+        run: cargo build --release --target ${{ matrix.target }} -p panel-server
+
+      # ── 打包 ────────────────────────────────────────────────────────────────
+
+      - name: 打包（Linux / macOS）
+        if: runner.os != 'Windows'
+        run: |
+          BIN=target/${{ matrix.target }}/release/panel-server
+          cp "$BIN" ./${{ matrix.artifact }}
+          chmod +x ./${{ matrix.artifact }}
+          tar czf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
+          sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
+
+      - name: 打包（Windows）
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item target/${{ matrix.target }}/release/panel-server.exe ./${{ matrix.artifact }}.exe
+          Compress-Archive -Path ./${{ matrix.artifact }}.exe -DestinationPath ./${{ matrix.artifact }}.zip
+          $hash = (Get-FileHash ./${{ matrix.artifact }}.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  ${{ matrix.artifact }}.zip" | Out-File -Encoding ascii ${{ matrix.artifact }}.zip.sha256
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.tar.gz.sha256
+            ${{ matrix.artifact }}.zip
+            ${{ matrix.artifact }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── 3. 发布 GitHub Release（仅 tag 触发）───────────────────────────────────
+  release:
+    name: 发布 Release
+    needs: build-binary
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 下载所有构建产物
+        uses: actions/download-artifact@v4
+        with:
+          pattern: panel-server-*
+          path: dist/
+          merge-multiple: true
+
+      - name: 生成汇总 SHA256 校验文件
+        run: |
+          cd dist
+          # 合并各平台的 .sha256 单文件为一个总表
+          cat *.sha256 | tee SHA256SUMS.txt
+          echo ""
+          echo "=== 产物列表 ==="
+          ls -lh
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          # 含 - 的 tag（如 v1.0.0-beta.1）标记为预发布
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
