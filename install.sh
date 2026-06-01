@@ -53,11 +53,38 @@ _section() { echo -e "\n${BOLD}${MAGENTA}══ $* ══${NC}"; }
 load_env() {
   [ -f "$ENV_FILE" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
-    [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-    key="${line%%=*}"; val="${line#*=}"
-    val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
+    # 剥离 Windows CRLF 的 \r
+    line="${line%$'\r'}"
+    # 忽略注释行和空行
+    case "$line" in \#*|"") continue ;; esac
+    # 只处理包含 = 的行
+    case "$line" in *=*) ;; *) continue ;; esac
+    local key="${line%%=*}"
+    local val="${line#*=}"
+    # 去掉值两端引号（单/双）
+    val="${val#\"}" ; val="${val%\"}"
+    val="${val#\'}" ; val="${val%\'}"
+    # trim 前后空白（含 \r）
+    val="${val#"${val%%[! $'\t'$'\r']*}"}"
+    val="${val%"${val##*[! $'\t'$'\r']}"}"
+    # trim key
+    key="${key#"${key%%[! ]*}"}"
+    key="${key%"${key##*[! ]}"}"
+    [ -z "$key" ] && continue
     export "$key=$val"
   done < "$ENV_FILE"
+}
+
+# ── PANEL_BIND 格式校验 ──────────────────────────────────────────────────────
+_validate_bind() {
+  local bind="${PANEL_BIND:-}"
+  if [ -n "$bind" ] && ! echo "$bind" | grep -qE '^[^:]+:[0-9]+$'; then
+    echo -e "${RED}✗ PANEL_BIND 格式无效: '${bind}'${NC}"
+    echo -e "${YELLOW}  可能原因: .env 存在 Windows CRLF 或多余引号${NC}"
+    echo -e "${YELLOW}  修复: sed -i 's/\\r//' ${ENV_FILE}${NC}"
+    echo -e "${YELLOW}  正确格式: PANEL_BIND=0.0.0.0:8080${NC}"
+    exit 1
+  fi
 }
 
 apply_defaults() {
@@ -74,6 +101,7 @@ apply_defaults() {
 
 load_env
 apply_defaults
+_validate_bind
 
 # ── 参数解析 ──────────────────────────────────────────────────────────────────
 SUBCMD=""
@@ -350,14 +378,22 @@ show_config_summary() {
 # ── 后台启动（内部）─────────────────────────────────────────────────────────
 _do_start_bg() {
   mkdir -p "$DATA_DIR"
-  nohup "$BIN" >> "$LOG_FILE" 2>&1 &
-  echo $! > "$PID_FILE"
-  sleep 0.5
-  if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    _ok "已在后台启动 (PID $(cat "$PID_FILE"))"
-    _info "日志: tail -f $LOG_FILE"
+  # 重定向：stdout+stderr 追加到日志，关闭 stdin（防止 nohup 的 "ignoring input" 提示）
+  nohup "$BIN" </dev/null >>"$LOG_FILE" 2>&1 &
+  local new_pid=$!
+  echo "$new_pid" > "$PID_FILE"
+  # 等待最多 2 秒确认进程存活
+  local i=0
+  while [ $i -lt 4 ]; do
+    sleep 0.5
+    kill -0 "$new_pid" 2>/dev/null && break
+    i=$((i+1))
+  done
+  if kill -0 "$new_pid" 2>/dev/null; then
+    _ok "已在后台启动 (PID ${new_pid})"
+    _info "日志: tail -f ${LOG_FILE}"
   else
-    _err "启动失败，请查看日志: $LOG_FILE"
+    _err "启动失败，请查看日志: ${LOG_FILE}"
   fi
 }
 
