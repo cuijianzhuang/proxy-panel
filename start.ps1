@@ -182,7 +182,7 @@ function Do-Stop {
             Remove-Item $PID_FILE -Force -ErrorAction SilentlyContinue
             Write-Ok "已停止 (PID $pid)"
         } catch {
-            Write-Warn "无法停止 PID $pid: $_"
+            Write-Warn "无法停止 PID ${pid}: $_"
         }
     } else {
         Write-Warn "未找到运行中的 panel-server"
