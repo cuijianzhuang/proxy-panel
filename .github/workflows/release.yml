@@ -58,13 +58,15 @@ jobs:
             artifact: panel-server-linux-aarch64
             cross: true
 
-          # macOS Intel
+          # macOS Intel — 在 M 系芯片 runner 上交叉编译 x86_64
+          # 注: macos-13 (Intel) runner 在免费账户队列极长，改用 macos-latest
+          # (Apple Silicon) + Rust 交叉目标即可，无需任何额外工具链
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             artifact: panel-server-darwin-x86_64
             cross: false
 
-          # macOS Apple Silicon
+          # macOS Apple Silicon（原生编译）
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact: panel-server-darwin-aarch64
